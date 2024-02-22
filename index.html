@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            padding-inline: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 1rem auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .btn-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        textarea {
+            resize: none;
+            height: 100px;
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #calgroup {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Base Converter</h1>
+        <label for="x">Enter Number:</label>
+        <input type="text" id="x">
+        <label for="sel1">Original Base:</label>
+        <select id="sel1"></select>
+        <label for="sel2">Target Base:</label>
+        <select id="sel2"></select>
+        <div class="btn-container">
+            <button onclick="onconvert()">Convert</button>
+            <button onclick="copy()">Copy Result</button>
+            <button onclick="swap()">Swap Bases</button>
+        </div>
+        <textarea id="y" rows="4" cols="50" readonly></textarea>
+        <div id="calgroup">
+            <h2>Conversion Details</h2>
+            <p id="ylabel"></p>
+            <p>Original Base: <span id="b1txt"></span></p>
+            <div id="cal1" style="display: none;">
+                <p>Conversion Steps:</p>
+                <p id="cal1txt"></p>
+            </div>
+            <div id="cal2" style="display: none;">
+                <p>Decimal Equivalent:</p>
+                <p id="cal2dec"></p>
+                <div class="table-wrapper" style="overflow-x: scroll;">
+                    <table id="cal2tbl">
+                        <thead>
+                            <tr>
+                                <th>Division</th>
+                                <th>Quotient</th>
+                                <th>Remainder</th>
+                                <th>Step</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Table body will be dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+                <p id="cal2result"></p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p style="font-size: .75rem; text-align: center;">Copyright © 2024
+            <a href="https://hessennasser.github.io/smartdev-website/">Hessen Nasser</a>
+        </p>
+    </footer>
+
+    <script>
+
+        // Dynamically populate select options for bases from 2 to 30
+        function populateBaseSelectOptions() {
+            var select1 = document.getElementById("sel1");
+            var select2 = document.getElementById("sel2");
+            var baseNames = {
+                2: "Binary",
+                8: "Octal",
+                10: "Decimal",
+                16: "Hexadecimal"
+            };
+            for (var i = 2; i <= 30; i++) {
+                var option = document.createElement("option");
+                option.text = `${baseNames[i] ? i + " (" + baseNames[i] + ")" : i}`;
+                option.value = i;
+                select1.add(option);
+                select2.add(option.cloneNode(true)); // Clone the option for sel2
+            }
+            select1.value = "10"; // Set Decimal as default for sel1
+            select2.value = "16"; // Set Hexadecimal as default for sel2
+        }
+
+        // Call function to populate base select options when the page loads
+        window.onload = async function () {
+            await populateBaseSelectOptions();
+        };
+
+        // Function to convert the entered number from one base to another
+        function onconvert() {
+            var x = document.getElementById("x").value.trim(); // Get the entered number and trim leading/trailing spaces
+            var originalBase = parseInt(document.getElementById("sel1").value); // Get the original base
+            var targetBase = parseInt(document.getElementById("sel2").value); // Get the target base
+
+            // Check if the entered value is empty or not a valid number
+            if (x === '') {
+                return alert("Please enter a valid number.");
+            }
+            // Check if the entered value contains valid digits for the specified base
+            var validDigitsRegex;
+            if (originalBase <= 10) {
+                validDigitsRegex = new RegExp(`^[0-${originalBase - 1}]+(?:\\.[0-${originalBase - 1}]+)?$`);
+            } else {
+                validDigitsRegex = new RegExp(`^[0-9A-${String.fromCharCode(65 + originalBase - 11)}]+(?:\\.[0-9A-${String.fromCharCode(65 + originalBase - 11)}]+)?$`, 'i');
+            }
+            if (!validDigitsRegex.test(x)) {
+                return alert(`Please enter a valid number in base ${originalBase}.`);
+            }
+
+
+            // Split the input number into integer and fractional parts
+            var parts = x.split('.');
+            var integerPart = parts[0];
+            var fractionalPart = parts[1] || ''; // If no fractional part exists, default to empty string
+
+            // Convert the integer part to the target base
+            var integerResult = parseInt(integerPart, originalBase).toString(targetBase).toUpperCase();
+
+            // Convert the fractional part to the target base
+            var fractionalResult = convertFraction(fractionalPart, originalBase, targetBase);
+
+            // Combine integer and fractional parts to form the result
+            var result = integerResult + (fractionalResult ? '.' + fractionalResult : '');
+
+            // Remove trailing zeros from the fractional part
+            if (fractionalResult) {
+                fractionalResult = fractionalResult.replace(/0+$/, '');
+            }
+
+            // Remove trailing dot if the result ends with a dot after removing zeros
+            if (fractionalResult.endsWith('.')) {
+                fractionalResult = fractionalResult.slice(0, -1);
+            }
+
+            // Combine integer and fractional parts to form the result
+            result = integerResult + (fractionalResult ? '.' + fractionalResult : '');
+
+            // If there's a fractional part and it's not empty, add a dot to the integer part
+            if (fractionalResult && fractionalResult !== '') {
+                result = integerResult + '.' + fractionalResult;
+            } else {
+                result = integerResult;
+            }
+
+            // Display the result in the textarea
+            document.getElementById("y").value = result;
+
+            // Display conversion details
+            document.getElementById("calgroup").style.display = "block";
+            document.getElementById("ylabel").innerHTML = "Result number (" + result.length + " digits)";
+            document.getElementById("b1txt").innerHTML = originalBase;
+            document.getElementById("cal1").style.display = "none"; // For now, we're not showing the conversion steps
+            document.getElementById("cal2").style.display = "block";
+            document.getElementById("cal2dec").innerHTML = "Decimal Equivalent: " + convertToDecimal(x, originalBase);
+            displayConversionSteps(convertToDecimal(x, originalBase), targetBase);
+        }
+
+        // Function to convert a fraction from one base to another
+        function convertFraction(fractionalPart, originalBase, targetBase) {
+            if (!fractionalPart) return ''; // If no fractional part, return empty string
+
+            var decimalValue = 0;
+            var factor = 1 / originalBase; // Initialize factor for the first digit after the dot
+            for (var i = 0; i < fractionalPart.length; i++) {
+                var digit = parseInt(fractionalPart[i], originalBase);
+                decimalValue += digit * factor;
+                factor /= originalBase;
+            }
+
+            var result = '';
+            for (var i = 0; i < 6; i++) { // Convert up to 6 digits after the dot
+                decimalValue *= targetBase;
+                var digit = Math.floor(decimalValue);
+                result += digit.toString(targetBase).toUpperCase();
+                decimalValue -= digit;
+            }
+
+            return result;
+        }
+
+        // Function to convert a number from any base to decimal
+        function convertToDecimal(number, base) {
+            var parts = number.split('.');
+            var integerPart = parts[0];
+            var fractionalPart = parts[1] || ''; // If no fractional part exists, default to empty string
+
+            var decimalValue = parseInt(integerPart, base); // Convert the integer part to decimal
+
+            // Convert the fractional part to decimal
+            var factor = 1 / base;
+            for (var i = 0; i < fractionalPart.length; i++) {
+                var digit = parseInt(fractionalPart[i], base);
+                decimalValue += digit * factor;
+                factor /= base;
+            }
+
+            return decimalValue;
+        }
+
+        // Function to display the conversion steps for decimal to another base conversion
+        function displayConversionSteps(decimalValue, targetBase) {
+            var tableBody = document.getElementById("cal2tbl").getElementsByTagName("tbody")[0];
+            tableBody.innerHTML = ""; // Clear the table body
+
+            var step = 0;
+            while (decimalValue > 0) {
+                var remainder = decimalValue % targetBase;
+                var quotient = Math.floor(decimalValue / targetBase);
+                // Append a row to the table body with the division, quotient, remainder, and step
+                tableBody.innerHTML += "<tr><td>" + decimalValue + "</td><td>" + quotient + "</td><td>" + remainder + "</td><td>" + step + "</td></tr>";
+                decimalValue = quotient;
+                step++;
+            }
+
+            // Display the final result
+            document.getElementById("cal2result").innerHTML = "= (" + document.getElementById("y").value + ")<sub>" + targetBase + "</sub>";
+        }
+
+        // Function to copy the result to the clipboard
+        function copy() {
+            var resultTextarea = document.getElementById("y");
+            resultTextarea.select(); // Select the textarea
+            document.execCommand("copy"); // Copy the selected text to the clipboard
+            alert("Result copied to clipboard: " + resultTextarea.value);
+        }
+
+        // Function to swap the original and target bases
+        function swap() {
+            var sel1 = document.getElementById("sel1");
+            var sel2 = document.getElementById("sel2");
+
+            [sel1.value, sel2.value] = [sel2.value, sel1.value];
+        }
+
+    </script>
+
+</body>
+
+</html>
